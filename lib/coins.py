@@ -37,12 +37,13 @@ from decimal import Decimal
 from hashlib import sha256
 
 import lib.util as util
-from lib.hash import Base58, hash160, double_sha256, hash_to_str
+from lib.hash import Base58, hash160, double_sha256, hash_to_str, blake
 from lib.script import ScriptPubKey, OpCodes
 import lib.tx as lib_tx
 from server.block_processor import BlockProcessor
 import server.daemon as daemon
 from server.session import ElectrumX, DashElectrumX
+from functools import partial
 
 
 Block = namedtuple("Block", "raw header transactions")
@@ -1366,3 +1367,38 @@ class BitcoinAtom(Coin):
         '''Return the block header bytes'''
         deserializer = cls.DESERIALIZER(block)
         return deserializer.read_header(height, cls.BASIC_HEADER_SIZE)
+
+
+class Decred(Coin):
+    NAME = "Decred"
+    SHORTNAME = "DCR"
+    NET = "testnet"
+    XPUB_VERBYTES = bytes.fromhex("02fda926")
+    XPRV_VERBYTES = bytes.fromhex("02fda4e8")
+    P2PKH_VERBYTE = bytes.fromhex("073f")
+    P2SH_VERBYTES = [bytes.fromhex("071a")]
+    WIF_BYTE = bytes.fromhex("230e")
+    GENESIS_HASH = ('4261602a9d07d80ad47621a64ba6a07754902e496777edc4ff581946bd7bc29c')
+    BASIC_HEADER_SIZE = 180
+    DESERIALIZER = lib_tx.DeserializerDecred
+    ALLOW_ADVANCING_ERRORS = True
+    ENCODE_CHECK = partial(Base58.encode_check, hash_fn=blake)
+    DECODE_CHECK = partial(Base58.decode_check, hash_fn=blake)
+    TX_COUNT = 217380620
+    TX_COUNT_HEIGHT = 464000
+    TX_PER_BLOCK = 1800
+    RPC_PORT = 19119
+    HEADER_HASH = blake
+
+    @classmethod
+    def header_hash(cls, header):
+        '''Given a header return the hash.'''
+        return cls.HEADER_HASH(header)
+
+    @classmethod
+    def block(cls, raw_block, height):
+        '''Return a Block namedtuple given a raw block and its height.'''
+        if height > 0:
+            return super().block(raw_block, height)
+        else:
+            return Block(raw_block, cls.block_header(raw_block, height), [])        
